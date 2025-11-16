@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
+import os
+import requests
+from datetime import datetime
+
 
 
 app = FastAPI()
@@ -17,6 +21,25 @@ app.add_middleware(
 
 # Simple in-memory session store
 sessions = {}
+
+GOOGLE_SHEET_WEBHOOK = os.getenv("GOOGLE_SHEET_WEBHOOK")
+
+def log_booking_to_sheet(name: str, event_type: str, city: str, slot: str):
+    if not GOOGLE_SHEET_WEBHOOK:
+        return
+
+    payload = {
+        "name": name,
+        "event_type": event_type,
+        "city": city,
+        "slot": slot,
+        "timestamp": datetime.now().isoformat()
+    }
+
+    try:
+        requests.post(GOOGLE_SHEET_WEBHOOK, json=payload, timeout=5)
+    except Exception as e:
+        print("Error logging to Google Sheet:", e)
 
 
 class Message(BaseModel):
