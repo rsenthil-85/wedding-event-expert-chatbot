@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Wedding Event Expert Bot</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at top left, #ff9a9e 0, #fecfef 35%, #f6f3ff 70%, #d7e1ff 100%);
+        }
+
+        /* Floating chat container */
+        #chat-box {
+            width: 420px;
+            max-width: 95vw;
+            height: 620px;
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 24px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            animation: floatIn 0.5s ease-out;
+        }
+
+        /* Header like Instagram DM */
+        #chat-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+            background: linear-gradient(120deg, #ff9a9e 0%, #fecfef 40%, #fad0c4 100%);
+            color: #fff;
+        }
+
+        #header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #ff5e7b;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+        }
+
+        #header-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #header-text .title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        #header-text .subtitle {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        #header-right {
+            font-size: 11px;
+            opacity: 0.95;
+        }
+
+        /* Messages area */
+        #messages {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            background: linear-gradient(180deg, #fefcff 0%, #f7f8ff 50%, #ffffff 100%);
+        }
+
+        .msg-user,
+        .msg-bot {
+            margin: 6px 0;
+            display: flex;
+        }
+
+        .msg-user {
+            justify-content: flex-end;
+        }
+
+        .msg-bot {
+            justify-content: flex-start;
+        }
+
+        .bubble {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 18px;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            animation: bubbleIn 0.25s ease-out;
+        }
+
+        .msg-user .bubble {
+            background: linear-gradient(135deg, #ff5e7b, #ff9966);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg-bot .bubble {
+            background: #f1f0f5;
+            color: #222;
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Typing indicator */
+        #typing {
+            display: none;
+            padding: 0 12px 4px;
+            font-size: 11px;
+            color: #999;
+        }
+
+        /* Input area */
+        #input-area {
+            padding: 10px 12px 12px;
+            border-top: 1px solid rgba(0, 0, 0, 0.04);
+            background: #ffffff;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        #input-text {
+            flex: 1;
+            padding: 9px 11px;
+            border-radius: 18px;
+            border: 1px solid #e1e1e7;
+            font-size: 13px;
+            outline: none;
+            transition: border 0.2s, box-shadow 0.2s;
+        }
+
+        #input-text:focus {
+            border-color: #ff5e7b;
+            box-shadow: 0 0 0 1px rgba(255, 94, 123, 0.4);
+        }
+
+        #send-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #ff5e7b, #ff9966);
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255, 94, 123, 0.4);
+            transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+        }
+
+        #send-btn:active {
+            transform: translateY(1px) scale(0.98);
+            box-shadow: 0 2px 6px rgba(255, 94, 123, 0.3);
+        }
+
+        /* Animations */
+        @keyframes bubbleIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px) scale(0.97);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes floatIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.96);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @media (max-width: 480px) {
+            #chat-box {
+                height: 90vh;
+                border-radius: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="chat-box">
+        <div id="chat-header">
+            <div id="header-left">
+                <div id="avatar">W</div>
+                <div id="header-text">
+                    <span class="title">Wedding Event Expert</span>
+                    <span class="subtitle">Powered by WedZat</span>
+                </div>
+            </div>
+            <div id="header-right">Online • Today</div>
+        </div>
+
+        <div id="messages"></div>
+        <div id="typing">Wedding Expert is typing…</div>
+
+        <div id="input-area">
+            <input id="input-text" type="text" placeholder="Ask anything about your wedding planning..." />
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const messagesDiv = document.getElementById("messages");
+        const input = document.getElementById("input-text");
+        const sendBtn = document.getElementById("send-btn");
+        const typingDiv = document.getElementById("typing");
+
+        // generate a simple session id
+        const sessionId = "sess_" + Math.random().toString(36).substring(2);
+
+        function addMessage(text, from) {
+            const row = document.createElement("div");
+            row.className = from === "user" ? "msg-user" : "msg-bot";
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble";
+            bubble.textContent = text;
+
+            row.appendChild(bubble);
+            messagesDiv.appendChild(row);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+            addMessage(text, "user");
+            input.value = "";
+
+            typingDiv.style.display = "block";
+
+            try {
+                const res = await fetch("http://127.0.0.1:8000/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: sessionId, text }),
+                });
+                const data = await res.json();
+                typingDiv.style.display = "none";
+                addMessage(data.reply, "bot");
+            } catch (err) {
+                typingDiv.style.display = "none";
+                addMessage("Oops, something went wrong. Is the server running?", "bot");
+            }
+        }
+
+        sendBtn.addEventListener("click", sendMessage);
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") sendMessage();
+        });
+
+        // initial bot message (ask name)
+        addMessage(
+            "Hi 👋 I’m your Wedding Event Expert.\nLet’s plan your dream wedding — what’s your name?",
+            "bot"
+        );
+    </script>
+</body>
+
+</html>
