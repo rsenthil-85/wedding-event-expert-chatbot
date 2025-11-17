@@ -2,11 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
+
 import os
 import requests
 from datetime import datetime
-
-
 
 app = FastAPI()
 
@@ -22,10 +21,24 @@ app.add_middleware(
 # Simple in-memory session store
 sessions = {}
 
+# ---- ENV VARS ----
 GOOGLE_SHEET_WEBHOOK = os.getenv("GOOGLE_SHEET_WEBHOOK")
 
+
+class Message(BaseModel):
+    session_id: str
+    text: str
+
+
+# ---- HELPERS ----
+
 def log_booking_to_sheet(name: str, event_type: str, city: str, slot: str):
+    """
+    Send booking data to Google Sheet via Apps Script Webhook.
+    """
     if not GOOGLE_SHEET_WEBHOOK:
+        # If not configured, just skip
+        print("GOOGLE_SHEET_WEBHOOK not set, skipping sheet log.")
         return
 
     payload = {
@@ -37,15 +50,13 @@ def log_booking_to_sheet(name: str, event_type: str, city: str, slot: str):
     }
 
     try:
-        requests.post(GOOGLE_SHEET_WEBHOOK, json=payload, timeout=5)
+        resp = requests.post(GOOGLE_SHEET_WEBHOOK, json=payload, timeout=5)
+        print("Sheet log status:", resp.status_code, resp.text)
     except Exception as e:
-        print("Error logging to Google Sheet:", e)
+        print("Error logging to sheet:", e)
 
 
-class Message(BaseModel):
-    session_id: str
-    text: str
-
+# ---- CHAT LOGIC ----
 
 @app.post("/chat")
 def chat(msg: Message):
@@ -98,12 +109,21 @@ def chat(msg: Message):
         else:
             s["slot"] = slots[text]
             s["step"] = "done"
+
+            name = s.get("name", "")
+            event_type = s.get("event_type", "")
+            city = s.get("city", "")
+            slot = s.get("slot", "")
+
+            # log to Google Sheet
+            log_booking_to_sheet(name, event_type, city, slot)
+
             reply = (
-                f"✅ All set, {s['name']}!\n"
+                f"✅ All set, {name}!\n"
                 f"Your free Wedding Event Expert call is booked.\n\n"
-                f"📅 Time: {s['slot']} (IST)\n"
-                f"🏙️ City: {s['city']}\n"
-                f"🎉 Event: {s['event_type']}\n\n"
+                f"📅 Time: {slot} (IST)\n"
+                f"🏙️ City: {city}\n"
+                f"🎉 Event: {event_type}\n\n"
                 "Our expert will contact you at the scheduled time. 💐"
             )
 
@@ -115,6 +135,8 @@ def chat(msg: Message):
 
     sessions[msg.session_id] = s
     return {"reply": reply}
+
+
 @app.get("/")
 def home():
     return FileResponse("index.html")
