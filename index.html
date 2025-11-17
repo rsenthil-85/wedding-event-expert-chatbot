@@ -170,6 +170,35 @@
   background: #ff7eb3;
   color: white;
 }
+/* Date picker (calendar) container */
+.date-picker-container {
+  margin: 10px 0 16px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff7fb;
+  border: 1px solid #ffd1e5;
+  font-size: 14px;
+}
+
+.date-picker-container input[type="date"] {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  width: 100%;
+}
+
+.date-picker-container button {
+  margin-top: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg,#ff758c,#ff7eb3);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
 
   </style>
 </head>
@@ -211,12 +240,12 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-   async function sendMessage() {
+  async function sendMessage() {
   const input = document.getElementById("user-input");
   const text = input.value.trim();
   if (!text) return;
 
-  // show user message
+  // Show user message
   addUserMessage(text);
   input.value = "";
 
@@ -237,8 +266,37 @@
 
   const data = await res.json();
 
-  // show bot message
+  // Show bot message
   addBotMessage(data.reply);
+
+  // 👉 If bot is asking for DATE, show calendar picker
+  if (data.reply.includes("Step 4 of 4: Which <b>date</b>")) {
+    // Remove any existing date pickers (avoid duplicates)
+    document.querySelectorAll(".date-picker-container").forEach(el => el.remove());
+
+    const container = document.createElement("div");
+    container.className = "date-picker-container";
+
+    container.innerHTML = `
+      <div><b>Select a date for your call:</b></div>
+      <input type="date" id="wedzat-date-picker" />
+      <button type="button" onclick="sendSelectedDate()">Confirm date</button>
+    `;
+
+    chatBox.appendChild(container);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // Set minimum date = today
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    document
+      .getElementById("wedzat-date-picker")
+      .setAttribute("min", `${yyyy}-${mm}-${dd}`);
+  }
+}
+
 
   // 👇👇 NEW PART: if this reply is asking for event type, show buttons
   if (data.reply.toLowerCase().includes("which event are you planning")) {
@@ -262,6 +320,27 @@
     chatBox.appendChild(btns);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
+}
+function sendSelectedDate() {
+  const picker = document.getElementById("wedzat-date-picker");
+  if (!picker || !picker.value) {
+    alert("Please select a date for your consultation call.");
+    return;
+  }
+
+  // ISO like "2025-11-18"
+  const iso = picker.value;
+  const dateObj = new Date(iso);
+
+  // Pretty format for user bubble: "18 Nov 2025"
+  const options = { day: "2-digit", month: "short", year: "numeric" };
+  const pretty = dateObj.toLocaleDateString("en-GB", options);
+
+  // Put into the hidden input and send as if user typed it
+  document.getElementById("user-input").value = pretty;
+  // Remove the calendar from chat after selection
+  document.querySelectorAll(".date-picker-container").forEach(el => el.remove());
+  sendMessage();
 }
 
 // Initial bot message
