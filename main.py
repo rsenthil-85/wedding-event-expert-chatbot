@@ -91,17 +91,7 @@ def chat(msg: Message):
         else:
             s["name"] = text
             s["step"] = "ask_event_type"
-            reply = (
-                f"Lovely name, {text}! 😊<br>"
-                "To guide you better, which event are you planning?<br><br>"
-                "1️⃣ Wedding<br>"
-                "2️⃣ Reception<br>"
-                "3️⃣ Mehendi<br>"
-                "4️⃣ Sangeet<br>"
-                "5️⃣ Engagement<br>"
-                "6️⃣ Other"
-            )
-
+          
     # STEP 2 – Ask event type (only 1–6; if 6 → ask custom)
     elif step == "ask_event_type":
         if text not in ["1", "2", "3", "4", "5", "6"]:
