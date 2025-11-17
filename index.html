@@ -264,9 +264,13 @@
   }
 }
 
+// Initial bot message
+addBotMessage(
+  "Hi 👋 Welcome to <b>Wedding Event Expert</b> by WedZat.<br><br>" +
+  "We’ll do this in 4 quick steps to get you a perfect consultation slot.<br><br>" +
+  "Step 1 of 4: What’s your good name?"
+);
 
-    // Initial bot message
-    addBotMessage("Hi 👋 I’m your Wedding Event Expert.<br>Let’s plan your dream wedding — what’s your name?");
     function sendQuick(value) {
   document.getElementById("user-input").value = value;
   sendMessage();
