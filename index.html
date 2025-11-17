@@ -221,144 +221,111 @@
   </div>
 
   <script>
-    const chatBox = document.getElementById("chat-box");
-    const sessionId = Math.random().toString(36).substring(7);
+  const chatBox = document.getElementById("chat-box");
+  const sessionId = Math.random().toString(36).substring(7);
 
-  function addBotMessage(html) {
-  const msg = document.createElement("div");
-  msg.className = "bot-msg";
-  msg.innerHTML = html;
-  chatBox.appendChild(msg);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
+  function addBotMessage(text) {
+    const msg = document.createElement("div");
+    msg.className = "bot-msg";
+    msg.innerHTML = text;
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
 
-    function addUserMessage(text) {
-      const msg = document.createElement("div");
-      msg.className = "user-msg";
-      msg.innerText = text;
-      chatBox.appendChild(msg);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
+  function addUserMessage(text) {
+    const msg = document.createElement("div");
+    msg.className = "user-msg";
+    msg.innerText = text;
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
 
   async function sendMessage() {
-  const input = document.getElementById("user-input");
-  const text = input.value.trim();
-  if (!text) return;
+    const input = document.getElementById("user-input");
+    const text = input.value.trim();
+    if (!text) return;
 
-  // Show user message
-  addUserMessage(text);
-  input.value = "";
+    addUserMessage(text);
+    input.value = "";
 
-  // Typing animation
-  const typing = document.createElement("div");
-  typing.className = "typing";
-  typing.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-  chatBox.appendChild(typing);
-  chatBox.scrollTop = chatBox.scrollHeight;
+    // Typing animation
+    const typing = document.createElement("div");
+    typing.className = "typing";
+    typing.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+    chatBox.appendChild(typing);
+    chatBox.scrollTop = chatBox.scrollHeight;
 
-  const res = await fetch("/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId, text })
-  });
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, text })
+    });
 
-  typing.remove();
+    typing.remove();
 
-  const data = await res.json();
+    const data = await res.json();
+    addBotMessage(data.reply);
 
-  // Show bot message
-  addBotMessage(data.reply);
+    // 👉 Check if bot is asking for the date → show calendar UI
+    if (data.reply.includes("Step 4 of 4: Which <b>date</b>")) {
+      document.querySelectorAll(".date-picker-container").forEach(el => el.remove());
 
-  // 👉 If bot is asking for DATE, show calendar picker
-  if (data.reply.includes("Step 4 of 4: Which <b>date</b>")) {
-    // Remove any existing date pickers (avoid duplicates)
+      const container = document.createElement("div");
+      container.className = "date-picker-container";
+
+      container.innerHTML = `
+        <div><b>Select a date for your call:</b></div>
+        <input type="date" id="wedzat-date-picker" />
+        <button type="button" onclick="sendSelectedDate()">Confirm date</button>
+      `;
+
+      chatBox.appendChild(container);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // Set min date = today
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      document.getElementById("wedzat-date-picker").setAttribute("min", `${yyyy}-${mm}-${dd}`);
+    }
+  }
+
+  function sendSelectedDate() {
+    const picker = document.getElementById("wedzat-date-picker");
+    if (!picker || !picker.value) {
+      alert("Please select a date for your consultation call.");
+      return;
+    }
+
+    const iso = picker.value;
+    const dateObj = new Date(iso);
+
+    const options = { day: "2-digit", month: "short", year: "numeric" };
+    const pretty = dateObj.toLocaleDateString("en-GB", options);
+
+    // Remove calendar before sending
     document.querySelectorAll(".date-picker-container").forEach(el => el.remove());
 
-    const container = document.createElement("div");
-    container.className = "date-picker-container";
-
-    container.innerHTML = `
-      <div><b>Select a date for your call:</b></div>
-      <input type="date" id="wedzat-date-picker" />
-      <button type="button" onclick="sendSelectedDate()">Confirm date</button>
-    `;
-
-    chatBox.appendChild(container);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    // Set minimum date = today
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    document
-      .getElementById("wedzat-date-picker")
-      .setAttribute("min", `${yyyy}-${mm}-${dd}`);
-  }
-}
-
-
-  // 👇👇 NEW PART: if this reply is asking for event type, show buttons
-  if (data.reply.toLowerCase().includes("which event are you planning")) {
-    // remove old quick buttons if any (avoid duplicates)
-    document.querySelectorAll(".quick-buttons").forEach(el => el.remove());
-
-    // create a container for buttons
-    const btns = document.createElement("div");
-    btns.className = "quick-buttons";
-
-    // add 6 buttons
-    btns.innerHTML = `
-      <button onclick="sendQuick('1')">Wedding</button>
-      <button onclick="sendQuick('2')">Reception</button>
-      <button onclick="sendQuick('3')">Mehendi</button>
-      <button onclick="sendQuick('4')">Sangeet</button>
-      <button onclick="sendQuick('5')">Engagement</button>
-      <button onclick="sendQuick('6')">Other</button>
-    `;
-
-    chatBox.appendChild(btns);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-}
-function sendSelectedDate() {
-  const picker = document.getElementById("wedzat-date-picker");
-  if (!picker || !picker.value) {
-    alert("Please select a date for your consultation call.");
-    return;
+    document.getElementById("user-input").value = pretty;
+    sendMessage();
   }
 
-  // ISO like "2025-11-18"
-  const iso = picker.value;
-  const dateObj = new Date(iso);
+  // ENTER KEY should send message
+  document.getElementById("user-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
 
-  // Pretty format for user bubble: "18 Nov 2025"
-  const options = { day: "2-digit", month: "short", year: "numeric" };
-  const pretty = dateObj.toLocaleDateString("en-GB", options);
+  // INITIAL BOT MESSAGE
+  addBotMessage(
+    "Hi 👋 Welcome to <b>Wedding Event Expert</b> by WedZat.<br><br>" +
+    "We’ll do this in 4 quick steps to get you a perfect consultation slot.<br><br>" +
+    "Step 1 of 4: What’s your good name?"
+  );
+</script>
 
-  // Put into the hidden input and send as if user typed it
-  document.getElementById("user-input").value = pretty;
-  // Remove the calendar from chat after selection
-  document.querySelectorAll(".date-picker-container").forEach(el => el.remove());
-  sendMessage();
-}
-
-// Initial bot message
-addBotMessage(
-  "Hi 👋 Welcome to <b>Wedding Event Expert</b> by WedZat.<br><br>" +
-  "We’ll do this in 4 quick steps to get you a perfect consultation slot.<br><br>" +
-  "Step 1 of 4: What’s your good name?"
-);
-
-    function sendQuick(value) {
-  document.getElementById("user-input").value = value;
-  sendMessage();
-}
-function sendQuick(value) {
-  document.getElementById("user-input").value = value;
-  sendMessage();
-}
-
-  </script>
 </body>
 </html>
