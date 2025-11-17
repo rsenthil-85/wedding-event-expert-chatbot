@@ -74,11 +74,16 @@ def chat(msg: Message):
     if step == "ask_name":
         s["name"] = text
         s["step"] = "ask_event_type"
-        reply = (
-            f"Nice to meet you, {text}! 😊\n"
-            "What are you mainly planning now?\n"
-            "1️⃣ Wedding\n2️⃣ Reception\n3️⃣ Mehendi\n4️⃣ Sangeet\n5️⃣ Engagement\n6️⃣ Other"
-        )
+       reply = (
+    f"Lovely name, {text}! 😊<br>"
+    "To guide you better, which event are you planning?<br><br>"
+    "1️⃣ Wedding<br>"
+    "2️⃣ Reception<br>"
+    "3️⃣ Mehendi<br>"
+    "4️⃣ Sangeet<br>"
+    "5️⃣ Engagement<br>"
+    "6️⃣ Other"
+)
 
     elif step == "ask_event_type":
         mapping = {
@@ -90,19 +95,23 @@ def chat(msg: Message):
         }
         s["event_type"] = mapping.get(text, text)
         s["step"] = "ask_city"
-        reply = f"Got it, {s['event_type']} 🎉\nWhich city is the event happening in?"
+       reply = (
+    f"Great! {s['event_type']} it is! 🎉<br>"
+    "Which city is the event happening in?"
+)
+
 
     elif step == "ask_city":
         s["city"] = text
         s["step"] = "show_slots"
-        reply = (
-            "Perfect! Let’s book your free call with our Wedding Event Expert.\n\n"
-            "Available slots (IST):\n"
-            "1️⃣ Today, 6:30–7:00 PM\n"
-            "2️⃣ Tomorrow, 11:00–11:30 AM\n"
-            "3️⃣ Tomorrow, 4:00–4:30 PM\n\n"
-            "Reply with 1, 2, or 3 to choose your slot."
-        )
+       reply = (
+    "Amazing — just one last step! 💫<br><br>"
+    "Please choose a slot for your free consultation call (IST):<br><br>"
+    "1️⃣ Today • 6:30–7:00 PM<br>"
+    "2️⃣ Tomorrow • 11:00–11:30 AM<br>"
+    "3️⃣ Tomorrow • 4:00–4:30 PM<br><br>"
+    "Reply with 1, 2, or 3."
+)
 
     elif step == "show_slots":
         slots = {
@@ -124,14 +133,16 @@ def chat(msg: Message):
             # log to Google Sheet
             log_booking_to_sheet(name, event_type, city, slot)
 
-            reply = (
-                f"✅ All set, {name}!\n"
-                f"Your free Wedding Event Expert call is booked.\n\n"
-                f"📅 Time: {slot} (IST)\n"
-                f"🏙️ City: {city}\n"
-                f"🎉 Event: {event_type}\n\n"
-                "Our expert will contact you at the scheduled time. 💐"
-            )
+           reply = (
+    f"✨ You're all set, {s['name']}! ✨<br><br>"
+    "Your free Wedding Event Expert call is confirmed.<br><br>"
+    f"📅 <b>Slot:</b> {s['slot']}<br>"
+    f"🏙️ <b>City:</b> {s['city']}<br>"
+    f"🎉 <b>Event:</b> {s['event_type']}<br><br>"
+    "Our expert will connect with you at the scheduled time.<br>"
+    "Looking forward to making your wedding planning effortless 💐"
+)
+
 
     else:
         reply = (
