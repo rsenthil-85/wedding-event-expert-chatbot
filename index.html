@@ -148,6 +148,29 @@
       0%, 80%, 100% { opacity: 0.2; }
       40% { opacity: 1; }
     }
+    /* Quick Reply Buttons */
+.quick-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.quick-buttons button {
+  background: white;
+  border: 2px solid #ff7eb3;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.quick-buttons button:hover {
+  background: #ff7eb3;
+  color: white;
+}
+
   </style>
 </head>
 
@@ -172,13 +195,13 @@
     const chatBox = document.getElementById("chat-box");
     const sessionId = Math.random().toString(36).substring(7);
 
-    function addBotMessage(text) {
-      const msg = document.createElement("div");
-      msg.className = "bot-msg";
-      msg.innerHTML = text;
-      chatBox.appendChild(msg);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
+  function addBotMessage(html) {
+  const msg = document.createElement("div");
+  msg.className = "bot-msg";
+  msg.innerHTML = html;
+  chatBox.appendChild(msg);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
 
     function addUserMessage(text) {
       const msg = document.createElement("div");
@@ -188,35 +211,71 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    async function sendMessage() {
-      const input = document.getElementById("user-input");
-      const text = input.value.trim();
-      if (!text) return;
+   async function sendMessage() {
+  const input = document.getElementById("user-input");
+  const text = input.value.trim();
+  if (!text) return;
 
-      addUserMessage(text);
-      input.value = "";
+  // show user message
+  addUserMessage(text);
+  input.value = "";
 
-      // Typing animation
-      const typing = document.createElement("div");
-      typing.className = "typing";
-      typing.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-      chatBox.appendChild(typing);
-      chatBox.scrollTop = chatBox.scrollHeight;
+  // Typing animation
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  chatBox.appendChild(typing);
+  chatBox.scrollTop = chatBox.scrollHeight;
 
-      const res = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, text })
-      });
+  const res = await fetch("/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, text })
+  });
 
-      typing.remove();
+  typing.remove();
 
-      const data = await res.json();
-      addBotMessage(data.reply);
-    }
+  const data = await res.json();
+
+  // show bot message
+  addBotMessage(data.reply);
+
+  // 👇👇 NEW PART: if this reply is asking for event type, show buttons
+  if (data.reply.toLowerCase().includes("which event are you planning")) {
+    // remove old quick buttons if any (avoid duplicates)
+    document.querySelectorAll(".quick-buttons").forEach(el => el.remove());
+
+    // create a container for buttons
+    const btns = document.createElement("div");
+    btns.className = "quick-buttons";
+
+    // add 6 buttons
+    btns.innerHTML = `
+      <button onclick="sendQuick('1')">Wedding</button>
+      <button onclick="sendQuick('2')">Reception</button>
+      <button onclick="sendQuick('3')">Mehendi</button>
+      <button onclick="sendQuick('4')">Sangeet</button>
+      <button onclick="sendQuick('5')">Engagement</button>
+      <button onclick="sendQuick('6')">Other</button>
+    `;
+
+    chatBox.appendChild(btns);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+}
+
 
     // Initial bot message
     addBotMessage("Hi 👋 I’m your Wedding Event Expert.<br>Let’s plan your dream wedding — what’s your name?");
+    function sendQuick(value) {
+  document.getElementById("user-input").value = value;
+  sendMessage();
+}
+function sendQuick(value) {
+  document.getElementById("user-input").value = value;
+  sendMessage();
+}
+
   </script>
 </body>
 </html>
