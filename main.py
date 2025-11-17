@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
 
 import os
 import requests
@@ -9,7 +11,8 @@ from datetime import datetime
 
 app = FastAPI()
 
-# Allow frontend (browser) to call this API
+
+# Allow frontend (browser) to call this AP
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # in production, restrict this
@@ -17,6 +20,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve static files (logo, images, etc.)
+app.mount("/static", StaticFiles(directory="."), name="static")
 
 # Simple in-memory session store
 sessions = {}
