@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static mount (logo etc. if needed)
+# Static mount (for logo etc.)
 app.mount("/static", StaticFiles(directory="."), name="static")
 
 # Simple in-memory session store
@@ -28,19 +28,22 @@ sessions = {}
 # Google Sheet webhook
 GOOGLE_SHEET_WEBHOOK = os.getenv("GOOGLE_SHEET_WEBHOOK")
 
+# WhatsApp recipients: format "+91xxxxxxx:APIKEY1,+91yyyyyyy:APIKEY2"
+WHATSAPP_RECIPIENTS_RAW = os.getenv("WHATSAPP_RECIPIENTS", "")
+
 
 class Message(BaseModel):
     session_id: str
     text: str
 
 
+# ---------- GOOGLE SHEET LOGGING ----------
+
 def log_booking_to_sheet(name: str, event_type: str, location: str, when_text: str):
     """
     Send booking data to Google Sheet via Apps Script Webhook.
 
-    NOTE:
-    For backward compatibility with your existing sheet script,
-    we still send keys named `city` and `slot`.
+    Using existing keys: city, slot (for backward compatibility).
     """
     if not GOOGLE_SHEET_WEBHOOK:
         print("GOOGLE_SHEET_WEBHOOK not set, skipping sheet log.")
@@ -49,8 +52,8 @@ def log_booking_to_sheet(name: str, event_type: str, location: str, when_text: s
     payload = {
         "name": name,
         "event_type": event_type,
-        "city": location,          # using 'city' key to store location
-        "slot": when_text,         # using 'slot' key to store preferred date & time
+        "city": location,      # store full location
+        "slot": when_text,     # store "date • time slot"
         "timestamp": datetime.now().isoformat()
     }
 
@@ -61,7 +64,57 @@ def log_booking_to_sheet(name: str, event_type: str, location: str, when_text: s
         print("Error logging to sheet:", e)
 
 
-# -------- VALIDATION HELPERS --------
+# ---------- WHATSAPP NOTIFICATIONS ----------
+
+def parse_whatsapp_recipients():
+    """
+    Parse WHATSAPP_RECIPIENTS env into list of (phone, apikey).
+    Format: "+91xxxxxxx:APIKEY1,+91yyyyyy:APIKEY2"
+    """
+    recipients = []
+    raw = WHATSAPP_RECIPIENTS_RAW or ""
+    for part in raw.split(","):
+        part = part.strip()
+        if not part or ":" not in part:
+            continue
+        phone, key = part.split(":", 1)
+        phone = phone.strip()
+        key = key.strip()
+        if phone and key:
+            recipients.append((phone, key))
+    return recipients
+
+
+def send_whatsapp_notifications(name: str, event_type: str, location: str, when_text: str):
+    """
+    Send WhatsApp notifications to all configured recipients using CallMeBot.
+    """
+    recipients = parse_whatsapp_recipients()
+    if not recipients:
+        print("No WHATSAPP_RECIPIENTS configured; skipping WhatsApp notifications.")
+        return
+
+    message = (
+        "New Wedding Event Expert Booking\n"
+        f"Name: {name}\n"
+        f"Event: {event_type}\n"
+        f"Location: {location}\n"
+        f"Preferred: {when_text}\n"
+    )
+
+    for phone, apikey in recipients:
+        try:
+            resp = requests.get(
+                "https://api.callmebot.com/whatsapp.php",
+                params={"phone": phone, "text": message, "apikey": apikey},
+                timeout=8,
+            )
+            print(f"WhatsApp notify → {phone}: {resp.status_code}")
+        except Exception as e:
+            print(f"Error sending WhatsApp to {phone}: {e}")
+
+
+# ---------- VALIDATION HELPERS ----------
 
 def is_valid_name(text: str) -> bool:
     text = text.strip()
@@ -79,10 +132,10 @@ def is_valid_location(text: str) -> bool:
     return has_alpha
 
 
-def is_valid_datetime_text(text: str) -> bool:
+def is_valid_date_text(text: str) -> bool:
     """
-    Very light check: at least a few chars and contains a digit.
-    (Example: '12 Jan, 6:30 PM', 'Next Saturday evening')
+    Light validation: at least 5 chars and has a digit.
+    For calendar we get things like '18 Nov 2025'.
     """
     text = text.strip()
     if len(text) < 5:
@@ -91,7 +144,7 @@ def is_valid_datetime_text(text: str) -> bool:
     return has_digit
 
 
-# -------- CHAT LOGIC --------
+# ---------- CHAT LOGIC ----------
 
 @app.post("/chat")
 def chat(msg: Message):
@@ -99,7 +152,7 @@ def chat(msg: Message):
     step = s["step"]
     text = msg.text.strip()
 
-    # STEP 1 – Ask name (welcome + name)
+    # STEP 1 – Ask name
     if step == "ask_name":
         if not is_valid_name(text):
             reply = (
@@ -109,10 +162,66 @@ def chat(msg: Message):
             )
         else:
             s["name"] = text
-            s["step"] = "ask_event_type"
+            s["step"] = "ask_date"
             reply = (
                 f"Lovely name, {text}! 💐<br><br>"
-                "Step 2 of 4: Which event are you planning?<br><br>"
+                "Step 2 of 4: Which <b>date</b> works best for your consultation call?<br><br>"
+                "You can select from the calendar below or type like:<br>"
+                "<i>25 Dec</i> or <i>12 Jan 2026</i>"
+            )
+
+    # STEP 2 – Ask date (calendar date)
+    elif step == "ask_date":
+        if not is_valid_date_text(text):
+            reply = (
+                "Please select or type a clear date for the call 😊<br>"
+                "Example: <i>25 Dec</i> or <i>12/01/2026</i>"
+            )
+        else:
+            s["date"] = text
+            s["step"] = "ask_time_slot"
+            reply = (
+                "Perfect, date noted 📅<br><br>"
+                "Now choose a <b>time slot</b> for your call (IST).<br>"
+                "We are available between <b>11:00 AM and 8:00 PM</b>.<br><br>"
+                "Please pick one option:<br><br>"
+                "1️⃣ 11:00 AM – 12:00 PM<br>"
+                "2️⃣ 12:00 PM – 1:00 PM<br>"
+                "3️⃣ 1:00 PM – 2:00 PM<br>"
+                "4️⃣ 2:00 PM – 3:00 PM<br>"
+                "5️⃣ 3:00 PM – 4:00 PM<br>"
+                "6️⃣ 4:00 PM – 5:00 PM<br>"
+                "7️⃣ 5:00 PM – 6:00 PM<br>"
+                "8️⃣ 6:00 PM – 7:00 PM<br>"
+                "9️⃣ 7:00 PM – 8:00 PM<br><br>"
+                "Reply with a number between <b>1</b> and <b>9</b>."
+            )
+
+    # STEP 3 – Ask time slot (11 AM – 8 PM)
+    elif step == "ask_time_slot":
+        slots = {
+            "1": "11:00 AM – 12:00 PM",
+            "2": "12:00 PM – 1:00 PM",
+            "3": "1:00 PM – 2:00 PM",
+            "4": "2:00 PM – 3:00 PM",
+            "5": "3:00 PM – 4:00 PM",
+            "6": "4:00 PM – 5:00 PM",
+            "7": "5:00 PM – 6:00 PM",
+            "8": "6:00 PM – 7:00 PM",
+            "9": "7:00 PM – 8:00 PM",
+        }
+
+        if text not in slots:
+            reply = (
+                "Just pick a time from the list above 😊<br>"
+                "Reply with a number between <b>1</b> and <b>9</b>."
+            )
+        else:
+            s["time_slot"] = slots[text]
+            s["step"] = "ask_event_type"
+            reply = (
+                "Nice, time slot locked in! ⏰<br><br>"
+                "Step 3 of 4: Which event are you planning?<br><br>"
                 "1️⃣ Wedding<br>"
                 "2️⃣ Reception<br>"
                 "3️⃣ Mehendi<br>"
@@ -121,7 +230,7 @@ def chat(msg: Message):
                 "6️⃣ Other"
             )
 
-    # STEP 2 – Ask event type (1–6; if 6 → custom)
+    # STEP 4 – Event type (1–6)
     elif step == "ask_event_type":
         if text not in ["1", "2", "3", "4", "5", "6"]:
             reply = (
@@ -154,10 +263,10 @@ def chat(msg: Message):
                 s["step"] = "ask_location"
                 reply = (
                     f"Beautiful, we’ll plan for <b>{s['event_type']}</b> ✨<br><br>"
-                    "Step 3 of 4: Which <b>city/location</b> is the event happening in?"
+                    "Step 4 of 4: Which <b>city/location</b> is the event happening in?"
                 )
 
-    # STEP 2B – Custom event name
+    # STEP 4B – Custom event name
     elif step == "ask_other_event":
         if not is_valid_name(text):
             reply = (
@@ -169,10 +278,10 @@ def chat(msg: Message):
             s["step"] = "ask_location"
             reply = (
                 f"Lovely! We’ll plan for <b>{s['event_type']}</b> 🎉<br><br>"
-                "Step 3 of 4: Which <b>city/location</b> is the event happening in?"
+                "Step 4 of 4: Which <b>city/location</b> is the event happening in?"
             )
 
-    # STEP 3 – Ask location
+    # STEP 4C – Ask location, then finish
     elif step == "ask_location":
         if not is_valid_location(text):
             reply = (
@@ -181,40 +290,27 @@ def chat(msg: Message):
             )
         else:
             s["location"] = text
-            s["step"] = "ask_datetime"
-            reply = (
-                "Great, noted the location 💫<br><br>"
-                "Step 4 of 4: When would you like to schedule the <b>consultation call</b>?<br><br>"
-                "You can reply like:<br>"
-                "<i>12 Jan, between 6–7 PM</i><br>"
-                "<i>Tomorrow evening after 5 PM</i>"
-            )
-
-    # STEP 4 – Ask preferred date & time
-    elif step == "ask_datetime":
-        if not is_valid_datetime_text(text):
-            reply = (
-                "Please share a clear date and time range for the call 😊<br>"
-                "Example: <i>25 Dec, 4–5 PM</i> or <i>Tomorrow after 7 PM</i>"
-            )
-        else:
-            s["when"] = text
             s["step"] = "done"
 
             name = s.get("name", "")
             event_type = s.get("event_type", "")
             location = s.get("location", "")
-            when_text = s.get("when", "")
+            date_text = s.get("date", "")
+            time_slot = s.get("time_slot", "")
+            when_text = f"{date_text} • {time_slot}"
 
-            # Log lead into Google Sheet
+            # 1️⃣ Log to Google Sheet
             log_booking_to_sheet(name, event_type, location, when_text)
+
+            # 2️⃣ WhatsApp alerts (if configured)
+            send_whatsapp_notifications(name, event_type, location, when_text)
 
             reply = (
                 f"Thank you, {name}! ✨<br><br>"
                 "Your details are shared with our Wedding Event Expert.<br><br>"
                 f"🎉 <b>Event:</b> {event_type}<br>"
                 f"📍 <b>Location:</b> {location}<br>"
-                f"📅 <b>Preferred time:</b> {when_text}<br><br>"
+                f"📅 <b>Preferred:</b> {when_text}<br><br>"
                 "Our expert will review this and reach out to you shortly to confirm the exact slot and next steps 💐"
             )
 
