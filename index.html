@@ -267,7 +267,10 @@
     addBotMessage(data.reply);
 
     // 👉 Check if bot is asking for the date → show calendar UI
-    if (data.reply.includes("Step 4 of 4: Which <b>date</b>")) {
+   if (
+  data.reply.toLowerCase().includes("step 2 of 4") &&
+  data.reply.toLowerCase().includes("date")
+) {
       document.querySelectorAll(".date-picker-container").forEach(el => el.remove());
 
       const container = document.createElement("div");
