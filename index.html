@@ -199,6 +199,38 @@
   font-size: 13px;
   cursor: pointer;
 }
+/* Time slot picker */
+.slot-picker-container {
+  margin: 10px 0 16px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff7fb;
+  border: 1px solid #ffd1e5;
+  font-size: 14px;
+}
+
+.slot-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.slot-button {
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #ff758c, #ff7eb3);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(255, 153, 172, 0.35);
+}
+
+.slot-button:hover {
+  opacity: 0.9;
+}
 
   </style>
 </head>
@@ -284,6 +316,36 @@
 
       chatBox.appendChild(container);
       chatBox.scrollTop = chatBox.scrollHeight;
+       // 👉 Check if bot is asking for time slot → show slot buttons
+  if (
+    data.reply.toLowerCase().includes("time slot") &&
+    data.reply.toLowerCase().includes("ist")
+  ) {
+     // Remove any existing slot pickers (avoid duplicates)
+    document.querySelectorAll(".slot-picker-container").forEach(el => el.remove());
+
+    const container = document.createElement("div");
+    container.className = "slot-picker-container";
+
+    container.innerHTML = `
+      <div><b>Select a time slot:</b></div>
+      <div class="slot-grid">
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('1')">11:00 – 12:00 PM</button>
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('2')">12:00 – 1:00 PM</button>
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('3')">1:00 – 2:00 PM</button>
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('4')">2:00 – 3:00 PM</button>
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('5')">3:00 – 4:00 PM</button>
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('6')">4:00 – 5:00 PM</button>
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('7')">5:00 – 6:00 PM</button>
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('8')">6:00 – 7:00 PM</button>
+        <button type="button" class="slot-button" onclick="sendSelectedSlot('9')">7:00 – 8:00 PM</button>
+      </div>
+    `;
+
+    chatBox.appendChild(container);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
 
       // Set min date = today
       const today = new Date();
@@ -306,6 +368,34 @@
 
     const options = { day: "2-digit", month: "short", year: "numeric" };
     const pretty = dateObj.toLocaleDateString("en-GB", options);
+function sendSelectedSlot(num) {
+  // Remove slot picker UI
+  document.querySelectorAll(".slot-picker-container").forEach(el => el.remove());
+
+  // Show the label in user bubble (pretty text),
+  // but send only the number '1'..'9' to backend
+  const labels = {
+    "1": "11:00 AM – 12:00 PM",
+    "2": "12:00 PM – 1:00 PM",
+    "3": "1:00 PM – 2:00 PM",
+    "4": "2:00 PM – 3:00 PM",
+    "5": "3:00 PM – 4:00 PM",
+    "6": "4:00 PM – 5:00 PM",
+    "7": "5:00 PM – 6:00 PM",
+    "8": "6:00 PM – 7:00 PM",
+    "9": "7:00 PM – 8:00 PM"
+  };
+
+  const pretty = labels[num] || num;
+
+  // Show as user message
+  addUserMessage(pretty);
+
+  // Now send just the number so backend logic stays same
+  const hiddenInput = document.getElementById("user-input");
+  hiddenInput.value = num;
+  sendMessage();
+}
 
     // Remove calendar before sending
     document.querySelectorAll(".date-picker-container").forEach(el => el.remove());
