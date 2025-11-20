@@ -28,8 +28,10 @@ sessions = {}
 # Google Sheet webhook
 GOOGLE_SHEET_WEBHOOK = os.getenv("GOOGLE_SHEET_WEBHOOK")
 
-# WhatsApp recipients: format "+91xxxxxxx:APIKEY1,+91yyyyyyy:APIKEY2"
-WHATSAPP_RECIPIENTS_RAW = os.getenv("WHATSAPP_RECIPIENTS", "")
+# WhatsApp Cloud API config
+WHATSAPP_CLOUD_TOKEN = os.getenv("WHATSAPP_CLOUD_TOKEN")
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+WHATSAPP_ADMIN_NUMBERS_RAW = os.getenv("WHATSAPP_ADMIN_NUMBERS", "")
 
 
 class Message(BaseModel):
@@ -65,6 +67,18 @@ def log_booking_to_sheet(name: str, event_type: str, location: str, when_text: s
 
 
 # ---------- WHATSAPP NOTIFICATIONS ----------
+def parse_admin_numbers():
+    """
+    Parse WHATSAPP_ADMIN_NUMBERS into a list of phone numbers.
+    Format: "+91xxxxxxxxxx,+91yyyyyyyyyy"
+    """
+    nums = []
+    raw = WHATSAPP_ADMIN_NUMBERS_RAW or ""
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            nums.append(part)
+    return nums
 
 def parse_whatsapp_recipients():
     """
@@ -87,31 +101,55 @@ def parse_whatsapp_recipients():
 
 def send_whatsapp_notifications(name: str, event_type: str, location: str, when_text: str):
     """
-    Send WhatsApp notifications to all configured recipients using CallMeBot.
+    Send WhatsApp notifications to all configured admins using WhatsApp Cloud API.
+    No one needs to save any special number or generate per-user API keys.
     """
-    recipients = parse_whatsapp_recipients()
-    if not recipients:
-        print("No WHATSAPP_RECIPIENTS configured; skipping WhatsApp notifications.")
+
+    # Basic safety checks
+    if not (WHATSAPP_CLOUD_TOKEN and WHATSAPP_PHONE_NUMBER_ID):
+        print("WhatsApp Cloud API env not set; skipping WhatsApp notifications.")
         return
 
+    admin_numbers = parse_admin_numbers()
+    if not admin_numbers:
+        print("No WHATSAPP_ADMIN_NUMBERS configured; skipping WhatsApp notifications.")
+        return
+
+    # WhatsApp Cloud API endpoint (version can be updated as per Meta docs)
+    url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_CLOUD_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # Message content (text type)
     message = (
-        "New Wedding Event Expert Booking\n"
-        f"Name: {name}\n"
-        f"Event: {event_type}\n"
-        f"Location: {location}\n"
-        f"Preferred: {when_text}\n"
+        "🌸 *New Wedding Event Expert Booking* 🌸\n\n"
+        f"👤 *Name:* {name}\n"
+        f"🎉 *Event:* {event_type}\n"
+        f"📍 *Location:* {location}\n"
+        f"📅 *Preferred:* {when_text}\n\n"
+        "Please contact the client to confirm the final slot and next steps. 💍"
     )
 
-    for phone, apikey in recipients:
+    for to_number in admin_numbers:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to_number,
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": message,
+            },
+        }
+
         try:
-            resp = requests.get(
-                "https://api.callmebot.com/whatsapp.php",
-                params={"phone": phone, "text": message, "apikey": apikey},
-                timeout=8,
-            )
-            print(f"WhatsApp notify → {phone}: {resp.status_code}")
+            resp = requests.post(url, json=payload, headers=headers, timeout=8)
+            print(f"WhatsApp notify → {to_number}: {resp.status_code} {resp.text}")
         except Exception as e:
-            print(f"Error sending WhatsApp to {phone}: {e}")
+            print(f"Error sending WhatsApp to {to_number}: {e}")
+
 
 
 # ---------- VALIDATION HELPERS ----------
